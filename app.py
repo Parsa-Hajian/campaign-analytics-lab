@@ -23,6 +23,7 @@ st.set_page_config(
     page_title="Campaign Analytics Lab",
     layout="wide",
     page_icon="📊",
+    initial_sidebar_state="expanded",
 )
 
 # ─── AUTH CREDENTIALS (env vars with demo fallback) ────────────────────────────
