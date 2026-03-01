@@ -128,6 +128,62 @@ def render_dashboard(df, profiles, yearly_kpis, sel_brands, res_level, time_col,
                 f"**{len(event_log)} event(s)** active — shaded bands show campaign windows. "
                 "Manage in ⚡ Lab → 📋 Audit.")
 
+    # ── Tab 3: Demand DNA Profile ────────────────────────────────────────────────
+    # NOTE: processed before Tab 2 so early-return in Goal Tracker cannot block DNA Profile.
+    with tab3:
+        st.subheader("Current Operational DNA")
+        st.caption(
+            "Three layers: **Pure** (historical blend) · **Pre-Trial** (calibration state) · "
+            "**Work** (final projection state after all modifications)")
+
+        dna_plot = df.groupby(time_col).agg({
+            "idx_sessions_pure": "mean", "idx_cr_pure": "mean", "idx_aov_pure": "mean",
+            "idx_sessions_pretrial": "mean", "idx_cr_pretrial": "mean", "idx_aov_pretrial": "mean",
+            "idx_sessions_work": "mean", "idx_cr_work": "mean", "idx_aov_work": "mean",
+        }).reset_index()
+
+        _DNA_PURE     = [("#FCD34D", "Sessions"), ("#6EE7B7", "CR"), ("#C4B5FD", "AOV")]
+        _DNA_PRETRIAL = [("#F97316", "Sessions"), ("#10B981", "CR"), ("#8B5CF6", "AOV")]
+        _DNA_WORK     = [("#C2410C", "Sessions"), ("#065F46", "CR"), ("#5B21B6", "AOV")]
+        _DNA_COLS_P   = ["idx_sessions_pure",    "idx_cr_pure",    "idx_aov_pure"]
+        _DNA_COLS_PT  = ["idx_sessions_pretrial", "idx_cr_pretrial", "idx_aov_pretrial"]
+        _DNA_COLS_W   = ["idx_sessions_work",     "idx_cr_work",     "idx_aov_work"]
+
+        fig_dna = go.Figure()
+        for col, (color, name) in zip(_DNA_COLS_P, _DNA_PURE):
+            fig_dna.add_trace(go.Scatter(
+                x=dna_plot[time_col], y=dna_plot[col],
+                mode="lines", line=dict(dash="dot", width=2, color=color),
+                name=f"{name} (Pure)"))
+
+        if has_events:
+            for col, (color, name) in zip(_DNA_COLS_PT, _DNA_PRETRIAL):
+                fig_dna.add_trace(go.Scatter(
+                    x=dna_plot[time_col], y=dna_plot[col],
+                    mode="lines", line=dict(dash="dash", width=2.5, color=color),
+                    name=f"{name} (Pre-Trial)"))
+            for col, (color, name) in zip(_DNA_COLS_W, _DNA_WORK):
+                fig_dna.add_trace(go.Scatter(
+                    x=dna_plot[time_col], y=dna_plot[col],
+                    mode="lines+markers",
+                    line=dict(width=3.5, color=color), marker=dict(size=5, color=color),
+                    name=f"{name} (Work)"))
+
+        fig_dna.update_layout(
+            template=_TEMPLATE,
+            title=dict(text=f"DNA Profile — {res_level} Resolution", font=dict(color="#12124a")),
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            yaxis_title="Index (1.0 = historical median)",
+        )
+        st.plotly_chart(fig_dna, use_container_width=True)
+
+        if has_events:
+            dna_evs = [e for e in event_log if e["type"] in ("custom_drag", "swap")]
+            if dna_evs:
+                st.markdown(
+                    f"**{len(dna_evs)} DNA modification(s) active** — manage in ⚡ Lab → 📋 Audit")
+
     # ── Tab 2: Goal Tracker ─────────────────────────────────────────────────────
     with tab2:
         st.subheader("🎯 Target Translation")
@@ -230,7 +286,7 @@ def render_dashboard(df, profiles, yearly_kpis, sel_brands, res_level, time_col,
         ].copy()
 
         if df_tgt.empty:
-            st.warning("Target period has no data in the projection year.")
+            st.warning("Target period has no data in the projection year. Adjust the dates above.")
             return
 
         tgt_rev_base  = df_tgt["Revenue_Base"].sum()
@@ -373,58 +429,3 @@ def render_dashboard(df, profiles, yearly_kpis, sel_brands, res_level, time_col,
             st.dataframe(disp_df.style.map(color_neg, subset=gap_cols), use_container_width=True)
         except AttributeError:
             st.dataframe(disp_df.style.applymap(color_neg, subset=gap_cols), use_container_width=True)
-
-    # ── Tab 3: Demand DNA Profile ───────────────────────────────────────────────
-    with tab3:
-        st.subheader("Current Operational DNA")
-        st.caption(
-            "Three layers: **Pure** (historical blend) · **Pre-Trial** (calibration state) · "
-            "**Work** (final projection state after all modifications)")
-
-        dna_plot = df.groupby(time_col).agg({
-            "idx_sessions_pure": "mean", "idx_cr_pure": "mean", "idx_aov_pure": "mean",
-            "idx_sessions_pretrial": "mean", "idx_cr_pretrial": "mean", "idx_aov_pretrial": "mean",
-            "idx_sessions_work": "mean", "idx_cr_work": "mean", "idx_aov_work": "mean",
-        }).reset_index()
-
-        _DNA_PURE     = [("#FCD34D", "Sessions"), ("#6EE7B7", "CR"), ("#C4B5FD", "AOV")]
-        _DNA_PRETRIAL = [("#F97316", "Sessions"), ("#10B981", "CR"), ("#8B5CF6", "AOV")]
-        _DNA_WORK     = [("#C2410C", "Sessions"), ("#065F46", "CR"), ("#5B21B6", "AOV")]
-        _DNA_COLS_P   = ["idx_sessions_pure",    "idx_cr_pure",    "idx_aov_pure"]
-        _DNA_COLS_PT  = ["idx_sessions_pretrial", "idx_cr_pretrial", "idx_aov_pretrial"]
-        _DNA_COLS_W   = ["idx_sessions_work",     "idx_cr_work",     "idx_aov_work"]
-
-        fig_dna = go.Figure()
-        for col, (color, name) in zip(_DNA_COLS_P, _DNA_PURE):
-            fig_dna.add_trace(go.Scatter(
-                x=dna_plot[time_col], y=dna_plot[col],
-                mode="lines", line=dict(dash="dot", width=2, color=color),
-                name=f"{name} (Pure)"))
-
-        if has_events:
-            for col, (color, name) in zip(_DNA_COLS_PT, _DNA_PRETRIAL):
-                fig_dna.add_trace(go.Scatter(
-                    x=dna_plot[time_col], y=dna_plot[col],
-                    mode="lines", line=dict(dash="dash", width=2.5, color=color),
-                    name=f"{name} (Pre-Trial)"))
-            for col, (color, name) in zip(_DNA_COLS_W, _DNA_WORK):
-                fig_dna.add_trace(go.Scatter(
-                    x=dna_plot[time_col], y=dna_plot[col],
-                    mode="lines+markers",
-                    line=dict(width=3.5, color=color), marker=dict(size=5, color=color),
-                    name=f"{name} (Work)"))
-
-        fig_dna.update_layout(
-            template=_TEMPLATE,
-            title=dict(text=f"DNA Profile — {res_level} Resolution", font=dict(color="#12124a")),
-            hovermode="x unified",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            yaxis_title="Index (1.0 = historical median)",
-        )
-        st.plotly_chart(fig_dna, use_container_width=True)
-
-        if has_events:
-            dna_evs = [e for e in event_log if e["type"] in ("custom_drag", "swap")]
-            if dna_evs:
-                st.markdown(
-                    f"**{len(dna_evs)} DNA modification(s) active** — manage in ⚡ Lab → 📋 Audit")
