@@ -119,7 +119,50 @@ section[data-testid="stSidebar"] h3 {{
     margin: 6px 0 2px;
 }}
 section[data-testid="stSidebar"] hr {{ border-color: var(--border); margin: 8px 0; }}
-section[data-testid="stSidebar"] [data-baseweb="radio"] svg {{ fill: var(--orange) !important; }}
+/* ── Sidebar nav buttons — flat, left-aligned ── */
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"] {{
+    background:    transparent !important;
+    border:        none !important;
+    box-shadow:    none !important;
+    text-align:    left !important;
+    padding:       7px 10px !important;
+    color:         #555555 !important;
+    font-size:     0.84rem !important;
+    font-weight:   400 !important;
+    font-family:   'Inter', sans-serif !important;
+    border-radius: 7px !important;
+    width:         100%;
+    transition:    background 0.15s, color 0.15s !important;
+    margin:        1px 0 !important;
+}}
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:hover {{
+    background: rgba(26,26,107,0.07) !important;
+    color:      #1a1a6b !important;
+    border:     none !important;
+}}
+.nav-active {{
+    display:       block;
+    background:    rgba(26,26,107,0.09);
+    border-left:   3px solid #1a1a6b;
+    border-radius: 0 7px 7px 0;
+    color:         #1a1a6b;
+    font-family:   'Inter', sans-serif;
+    font-size:     0.84rem;
+    font-weight:   600;
+    padding:       7px 10px 7px 7px;
+    margin:        1px 0;
+    cursor:        default;
+}}
+.nav-section {{
+    display:        block;
+    font-family:    'Inter', sans-serif;
+    font-size:      0.62rem;
+    font-weight:    700;
+    color:          #BBBBBB;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding:        12px 10px 5px;
+}}
 
 [data-baseweb="tab-list"] {{
     background: transparent !important;
@@ -382,35 +425,47 @@ st.sidebar.markdown(
     f"font-size:0.9rem;color:#111111;letter-spacing:-0.01em'>Campaign Analytics Lab</div>"
     f"<div style='font-family:Inter,sans-serif;font-size:0.68rem;color:#AAAAAA;"
     f"margin-top:2px'>Decision Intelligence Platform</div>"
-    f"<div style='font-family:Inter,sans-serif;font-size:0.72rem;color:#555555;"
-    f"margin-top:6px;font-weight:500'>{st.session_state._user_name}</div>"
     f"</div>",
     unsafe_allow_html=True,
 )
 st.sidebar.divider()
 
 # ── Navigation ─────────────────────────────────────────────────────────────────
-_NAV_LABELS = [
-    "📊 Dashboard",
-    "⚡ Simulation Lab",
-    "⚙️ Settings",
-    "📖 Documentation",
-]
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "dashboard"
 
-if "nav_page_idx" not in st.session_state:
-    st.session_state.nav_page_idx = 0
+_NAV_MAP = {
+    "dashboard": ("📊", "Dashboard"),
+    "lab":       ("⚡", "Simulation Lab"),
+    "settings":  ("⚙️",  "Settings"),
+    "docs":      ("📖", "Documentation"),
+}
 
-_page_idx = st.sidebar.radio(
-    "Navigate",
-    options=list(range(len(_NAV_LABELS))),
-    format_func=lambda i: _NAV_LABELS[i],
-    key="nav_page_idx",
-    label_visibility="collapsed",
-)
-page = _NAV_LABELS[_page_idx]
+def _nav_btn(key: str) -> None:
+    icon, label = _NAV_MAP[key]
+    if st.session_state.nav_page == key:
+        st.sidebar.markdown(
+            f"<span class='nav-active'>{icon}&nbsp;&nbsp;{label}</span>",
+            unsafe_allow_html=True,
+        )
+    else:
+        if st.sidebar.button(f"{icon}  {label}", key=f"nb_{key}", use_container_width=True):
+            st.session_state.nav_page = key
+            st.rerun()
+
+st.sidebar.markdown("<span class='nav-section'>Analytics</span>", unsafe_allow_html=True)
+_nav_btn("dashboard")
+_nav_btn("lab")
+
+st.sidebar.markdown("<span class='nav-section'>System</span>", unsafe_allow_html=True)
+_nav_btn("settings")
+_nav_btn("docs")
+
+_page_key = st.session_state.nav_page
+page = _NAV_MAP[_page_key][1]   # e.g. "Dashboard"
 st.sidebar.divider()
 
-_is_analytics = page in ("📊 Dashboard", "⚡ Simulation Lab")
+_is_analytics = _page_key in ("dashboard", "lab")
 
 # ── Analytics-only sidebar controls ────────────────────────────────────────────
 if _is_analytics:
@@ -533,43 +588,37 @@ if _is_analytics:
 
 # ── Sidebar footer ──────────────────────────────────────────────────────────────
 st.sidebar.divider()
-st.sidebar.markdown(
-    f"<p style='font-size:0.72rem;color:#CCCCCC;font-family:Inter,sans-serif;"
-    f"text-align:center;margin:0 0 8px'>"
-    f"<a href='mailto:{_EMAIL}' style='color:{_ORANGE};text-decoration:none'>"
-    f"{_EMAIL}</a></p>",
-    unsafe_allow_html=True,
-)
-if st.sidebar.button("Sign Out", use_container_width=True):
+if st.sidebar.button("Sign Out", use_container_width=True, type="primary"):
     st.session_state._auth_ok   = False
     st.session_state._user_name = ""
     st.rerun()
 
 # ─── PAGE HEADER ───────────────────────────────────────────────────────────────
 _subtitles = {
-    "📊 Dashboard":      "Forecast projection, goal tracking, and demand DNA profile",
-    "⚡ Simulation Lab": "Campaign simulation, DNA sculpting, de-shock analysis, attribution",
-    "⚙️ Settings":       "Campaign default coefficients per entity",
-    "📖 Documentation":  "Models, formulas, assumptions, and complete usage guide",
+    "dashboard": "Forecast projection, goal tracking, and demand DNA profile",
+    "lab":       "Campaign simulation, DNA sculpting, de-shock analysis, attribution",
+    "settings":  "Campaign default coefficients per entity",
+    "docs":      "Models, formulas, assumptions, and complete usage guide",
 }
+_page_title = f"{_NAV_MAP[_page_key][0]}  {page}"
 st.markdown(
     f"<div style='margin-bottom:24px'>"
     f"<h1 style='font-family:Inter,sans-serif;font-weight:700;font-size:1.6rem;"
-    f"color:{_BLACK};margin:0 0 4px;letter-spacing:-0.025em'>{page}</h1>"
+    f"color:{_BLACK};margin:0 0 4px;letter-spacing:-0.025em'>{_page_title}</h1>"
     f"<p style='font-family:Inter,sans-serif;font-size:0.84rem;color:#AAAAAA;"
-    f"margin:0;font-weight:400'>{_subtitles.get(page,'')}</p>"
+    f"margin:0;font-weight:400'>{_subtitles.get(_page_key,'')}</p>"
     f"<div style='height:1px;background:#EBEBEB;margin-top:16px'></div></div>",
     unsafe_allow_html=True,
 )
 
 # ─── PAGE ROUTING ──────────────────────────────────────────────────────────────
-if page == "📊 Dashboard":
+if _page_key == "dashboard":
     render_dashboard(
         df, profiles, yearly_kpis,
         sel_brands, res_level, time_col,
         base_cr, base_aov,
     )
-elif page == "⚡ Simulation Lab":
+elif _page_key == "lab":
     render_lab(
         df, df_raw, sel_brands, res_level, time_col,
         base_sessions, base_cr, base_aov,
@@ -577,7 +626,7 @@ elif page == "⚡ Simulation Lab":
         t_start, t_end, pure_dna,
         settings=_settings,
     )
-elif page == "⚙️ Settings":
+elif _page_key == "settings":
     render_settings()
-elif page == "📖 Documentation":
+elif _page_key == "docs":
     render_docs()
